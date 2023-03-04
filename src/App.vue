@@ -10,7 +10,7 @@
       </template>
     </v-app-bar>
     <v-navigation-drawer v-model="drawer.show">
-      <v-list density="compact" nav>
+      <v-list nav>
         <v-list-item 
           v-for="item, index in drawer.items" 
           :key="index" 
@@ -44,7 +44,11 @@ export default {
     }
   }),
   created(){
-    this.$store.dispatch('init')
+    this.$store.dispatch(
+      'init', 
+      //'http://localhost:8545'
+      undefined
+    )
   }
 }
 </script>

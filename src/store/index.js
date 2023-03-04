@@ -3,10 +3,11 @@ const Web3 = require('web3')
 
 export default createStore({
   state: {
-    web3: new Web3(Web3.givenProvider),
+    web3: null,
     chainId: null,
     gasPrice: null,
-    lastBlock: null,
+    lastBlockHeight: null,
+    lastBlockHeader: null,
     blocks: []
   },
   getters: {
@@ -14,27 +15,34 @@ export default createStore({
   mutations: {
   },
   actions: {
-    async init({state}){
+    async init({state, dispatch}, provider = undefined){
+      if (state.blocks.length) state.blocks = []
+      if (state.web3) state.web3.eth.clearSubscriptions()
+      state.web3 = new Web3(provider || Web3.givenProvider)
       state.chainId = await state.web3.eth.getChainId()
-      state.gasPrice = await state.web3.eth.getGasPrice()
-      state.lastBlock = await state.web3.eth.getBlockNumber()
-      for (let height = state.lastBlock - 9; height <= state.lastBlock; height++) {
-        const block = await state.web3.eth.getBlock(height)
-        state.blocks.unshift(block)
-      }
+      state.lastBlockHeight = await state.web3.eth.getBlockNumber()
+      const blocks = []
+      for (let i = 0; i < 10; i++) blocks.push(await state.web3.eth.getBlock(state.lastBlockHeight-i))
+      dispatch('sort', blocks)
       state.web3.eth.subscribe('newBlockHeaders', async (err, info) => {
-        state.lastBlock = info.number
-        const found = state.blocks.find(i => i.number == info.number)
-        if (!found) {
+        if (info) {
+          const blocks = [...state.blocks]
+          state.lastBlockHeader = info
+          state.lastBlockHeight = info.number
           const block = await state.web3.eth.getBlock(info.number)
-          state.blocks.unshift(block)
-          if (state.blocks.length > 10) state.blocks.pop()
-          state.gasPrice = block.baseFeePerGas
+          blocks.unshift(block)
+          if (blocks.length > 10) blocks.pop()
+          dispatch('sort', blocks)
         }
+        else console.error(err)
       })
     },
-    setProvider({state}, provider){
-      state.web3.setProvider(provider)
+    sort({state}, blocks){
+      state.blocks = blocks.sort((a,b) => {
+        const av = a.number
+        const bv = b.number
+        return av > bv ? -1 : av < bv ? 1 : 0
+      })
     }
   },
   modules: {
